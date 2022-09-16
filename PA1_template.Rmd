@@ -4,22 +4,112 @@ output:
   html_document:
     keep_md: true
 ---
-
+```{r include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 ## Loading and preprocessing the data
+```{r}
+unzip(zipfile = "activity.zip")
+library(dplyr)
+activity <- read.csv("activity.csv")
+activity <- tbl_df(activity)
+
+```
+
 
 
 
 ## What is mean total number of steps taken per day?
+```{r}
+# calculate sum of steps taken per day
+steps_per_day <- activity %>% group_by(date) %>% summarize (steps_taken_per_day = sum(steps, na.rm = TRUE))
+
+#plot an histogram of the sum of steps taken per day
+hist(steps_per_day$steps_taken_per_day, breaks = 30)
+
+#Calculate the mean and median of the total number of steps taken per day
+mean_median <- activity %>% group_by(date) %>% summarize(mean_steps_per_day = mean(steps,na.rm =TRUE), median_steps_per_day = median(steps, na.rm = TRUE))
+
+#report the mean and median of the total number of steps taken per day
+print(mean_median, n = nrow(mean_median))
+
+```
 
 
 
 ## What is the average daily activity pattern?
+```{r}
+#time series plot of 5minutes interval
+library(ggplot2)
+ggplot(activity, aes(x=interval, y = steps))+geom_line()
+
+#maximum number of steps
+max <- filter(activity, steps == max(steps, na.rm = TRUE))
+max$interval
+```
 
 
 
 ## Imputing missing values
+```{r}
+#number of missing values
+missing_values <- sum(is.na(activity$steps))
+missing_values
+
+#filling missing value by the mean of steps in that day
+new_data <- activity
+for(i in 1:nrow(new_data)){
+  if (is.na(new_data$steps[i])){
+    replacement <- filter(mean_median,date == new_data$date[i])
+    new_data$steps[i] <- replacement$mean_steps_per_day
+    if (is.na(new_data$steps[i])){new_data$steps[i]<- 0}
+  }
+}
+
+#histogram of the total number of steps taken each day
+new_steps_per_day <-new_data %>% group_by(date) %>% summarize (steps_taken_per_day = sum(steps, na.rm = TRUE))
+
+hist(new_steps_per_day$steps_taken_per_day, breaks = 30)
+
+#calculate the mean and median total number of steps taken per day
+new_mean_median <- new_data %>% group_by(date) %>% summarize (mean_steps_per_day = mean(steps, na.rm = TRUE), median_steps_per_day = median(steps, na.rm = TRUE))
+
+#report the mean and median of the total number of steps taken per day
+print(new_mean_median, n = nrow(new_mean_median))
+
+
+```
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+
+
+#function to transform to indicating wether a day is week day or week end (in french and english)
+week <- function(x){
+  gsub("samedi", "weekend",
+    gsub("dimanche", "weekend",
+      gsub("lundi","weekday",
+        gsub("lundi","weekday",
+          gsub("mardi","weekday",
+            gsub("mercredi","weekday",
+              gsub("jeudi","weekday",
+                gsub("vendredi","weekday",
+                  gsub("Saturday", "weekend",
+                    gsub("Sunday", "weekend",
+                      gsub("Monday","weekday",
+                        gsub("Tuesday","weekday",
+                          gsub("Wednesday","weekday",
+                            gsub("Thursday","weekday",
+                              gsub("Friday","weekday",
+                                x)))))))))))))))
+ }
+
+#add new factor indicating a txo levels "weekday " or "weekend"
+with_day <- mutate(new_data, day = week(weekdays(as.Date(date))))
+
+ggplot(with_day, aes(x = interval, y = steps))+geom_line()+facet_grid(day~.)
+```
+
